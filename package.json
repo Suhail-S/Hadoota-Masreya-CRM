@@ -5,11 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development tsx --env-file=.env server/index.ts",
-    "build": "npm run build:client && npm run build:server && npm run build:copy",
-    "build:client": "cd client && npm install && npm run build",
-    "build:server": "tsc -p server/tsconfig.json",
-    "build:copy": "mkdir -p dist/public && cp -r client/dist/* dist/public/",
-    "start": "NODE_ENV=production node dist/index.js",
+    "build": "tsx scripts/build.ts",
+    "start": "NODE_ENV=production node dist/vercel.cjs",
     "serve": "npm run build && npm start",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
@@ -36,6 +33,7 @@
     "@types/node": "^22.10.5",
     "@types/pg": "^8.11.10",
     "drizzle-kit": "^0.31.8",
+    "esbuild": "^0.27.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
