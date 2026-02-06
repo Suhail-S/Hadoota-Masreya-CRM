@@ -1,10 +1,9 @@
 import { build as esbuild } from "esbuild";
-import { build as viteBuild } from "vite";
 import { rm, readFile } from "fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
+import { exec } from "child_process";
+import { promisify } from "util";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const execAsync = promisify(exec);
 
 // Server deps to bundle
 const allowlist = [
@@ -25,7 +24,8 @@ async function buildAll() {
   await rm("dist", { recursive: true, force: true });
 
   console.log("Building client...");
-  await viteBuild({ configFile: path.join(__dirname, "../client/vite.config.ts") });
+  await execAsync("cd client && npm install && npm run build");
+  console.log("✅ Client built");
 
   console.log("Building Vercel serverless entry point...");
   const pkg = JSON.parse(await readFile("package.json", "utf-8"));
