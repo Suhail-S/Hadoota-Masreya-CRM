@@ -6,7 +6,12 @@ import type { User } from "../shared/schema";
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 export interface AuthRequest extends Request {
-  user?: User;
+  user?: {
+    id: string;
+    username: string;
+    role: string;
+    branchId?: string;
+  };
 }
 
 // Generate JWT token

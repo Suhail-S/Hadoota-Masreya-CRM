@@ -1,6 +1,6 @@
 // WhatsApp Database Storage Layer
 
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, SQL } from "drizzle-orm";
 import { db } from "../db";
 import {
   whatsappCustomers,
@@ -201,7 +201,16 @@ export class WhatsAppStorage {
     assignedToUserId?: string;
     limit?: number;
   }) {
-    let query = db
+    // Build where conditions
+    const whereConditions = [];
+    if (filters?.status) {
+      whereConditions.push(eq(whatsappConversations.status, filters.status as any));
+    }
+    if (filters?.assignedToUserId) {
+      whereConditions.push(eq(whatsappConversations.assignedToUserId, filters.assignedToUserId));
+    }
+
+    const query = db
       .select({
         conversation: whatsappConversations,
         customer: whatsappCustomers,
@@ -211,19 +220,11 @@ export class WhatsAppStorage {
         whatsappCustomers,
         eq(whatsappConversations.whatsappCustomerId, whatsappCustomers.id)
       )
-      .orderBy(desc(whatsappConversations.startedAt));
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .orderBy(desc(whatsappConversations.startedAt))
+      .limit(filters?.limit || 50);
 
-    if (filters?.status) {
-      query = query.where(eq(whatsappConversations.status, filters.status as any));
-    }
-
-    if (filters?.assignedToUserId) {
-      query = query.where(
-        eq(whatsappConversations.assignedToUserId, filters.assignedToUserId)
-      );
-    }
-
-    const results = await query.limit(filters?.limit || 50);
+    const results = await query;
 
     return results;
   }

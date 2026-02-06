@@ -7,6 +7,11 @@ import {
   comparePassword,
   type AuthRequest,
 } from "./auth";
+
+// Helper to ensure string parameter (not array)
+function ensureString(param: string | string[]): string {
+  return Array.isArray(param) ? param[0] : param;
+}
 import { upload } from "./upload";
 import { uploadMenuItemImage, deleteMenuItemImage } from "./supabase-storage";
 import { verifyWebhook, handleWebhook } from "./whatsapp/webhook";
@@ -117,7 +122,7 @@ export function registerRoutes(app: Express) {
     authorize("super_admin", "branch_manager", "shift_supervisor"),
     async (req, res) => {
       try {
-        const users = await storage.getUsersByBranch(req.params.branchId);
+        const users = await storage.getUsersByBranch(ensureString(req.params.branchId));
         const sanitizedUsers = users.map(({ password, ...user }) => user);
         res.json(sanitizedUsers);
       } catch (error: any) {
@@ -151,7 +156,7 @@ export function registerRoutes(app: Express) {
     authorize("super_admin", "branch_manager"),
     async (req, res) => {
       try {
-        const user = await storage.updateUser(req.params.id, req.body);
+        const user = await storage.updateUser(ensureString(req.params.id), req.body);
         const { password, ...userData } = user;
         res.json(userData);
       } catch (error: any) {
@@ -168,7 +173,7 @@ export function registerRoutes(app: Express) {
     authorize("super_admin"),
     async (req, res) => {
       try {
-        await storage.deleteUser(req.params.id);
+        await storage.deleteUser(ensureString(req.params.id));
         res.json({ message: "User deleted successfully" });
       } catch (error: any) {
         console.error("Delete user error:", error);
@@ -187,7 +192,7 @@ export function registerRoutes(app: Express) {
     authenticate,
     async (req, res) => {
       try {
-        const tables = await storage.getTablesBySectionId(req.params.sectionId);
+        const tables = await storage.getTablesBySectionId(ensureString(req.params.sectionId));
         res.json(tables);
       } catch (error: any) {
         console.error("Get tables error:", error);
@@ -219,7 +224,7 @@ export function registerRoutes(app: Express) {
     authorize("super_admin", "branch_manager"),
     async (req, res) => {
       try {
-        const table = await storage.updateTable(req.params.id, req.body);
+        const table = await storage.updateTable(ensureString(req.params.id), req.body);
         res.json(table);
       } catch (error: any) {
         console.error("Update table error:", error);
@@ -235,7 +240,7 @@ export function registerRoutes(app: Express) {
     authorize("super_admin", "branch_manager"),
     async (req, res) => {
       try {
-        await storage.deleteTable(req.params.id);
+        await storage.deleteTable(ensureString(req.params.id));
         res.json({ message: "Table deleted successfully" });
       } catch (error: any) {
         console.error("Delete table error:", error);
@@ -304,7 +309,7 @@ export function registerRoutes(app: Express) {
   // Get reservations by date
   app.get("/api/reservations/date/:date", authenticate, async (req, res) => {
     try {
-      const reservations = await storage.getReservationsByDate(req.params.date);
+      const reservations = await storage.getReservationsByDate(ensureString(req.params.date));
       res.json(reservations);
     } catch (error: any) {
       console.error("Get reservations by date error:", error);
@@ -333,7 +338,7 @@ export function registerRoutes(app: Express) {
   app.patch("/api/reservations/:id", authenticate, async (req, res) => {
     try {
       const reservation = await storage.updateReservation(
-        req.params.id,
+        ensureString(req.params.id),
         req.body
       );
       res.json(reservation);
@@ -347,7 +352,7 @@ export function registerRoutes(app: Express) {
   app.post("/api/reservations/:id/checkout", authenticate, async (req, res) => {
     try {
       const reservation = await storage.updateReservation(
-        req.params.id,
+        ensureString(req.params.id),
         { status: 'completed' }
       );
 
@@ -384,7 +389,7 @@ export function registerRoutes(app: Express) {
   // Get customer by ID
   app.get("/api/customers/:id", authenticate, async (req, res) => {
     try {
-      const customer = await storage.getCustomerById(req.params.id);
+      const customer = await storage.getCustomerById(ensureString(req.params.id));
       if (!customer) {
         return res.status(404).json({ error: "Customer not found" });
       }
@@ -398,7 +403,7 @@ export function registerRoutes(app: Express) {
   // Update customer
   app.patch("/api/customers/:id", authenticate, async (req, res) => {
     try {
-      const customer = await storage.updateCustomer(req.params.id, req.body);
+      const customer = await storage.updateCustomer(ensureString(req.params.id), req.body);
       res.json(customer);
     } catch (error: any) {
       console.error("Update customer error:", error);
@@ -413,7 +418,7 @@ export function registerRoutes(app: Express) {
   // Get or create order for table
   app.post("/api/tables/:tableId/order", authenticate, async (req, res) => {
     try {
-      const order = await storage.getOrCreateTableOrder(req.params.tableId, req.user!.id);
+      const order = await storage.getOrCreateTableOrder(ensureString(req.params.tableId), req.user!.id);
       res.json(order);
     } catch (error: any) {
       console.error("Get/create table order error:", error);
@@ -424,7 +429,7 @@ export function registerRoutes(app: Express) {
   // Get active order for table
   app.get("/api/tables/:tableId/order", authenticate, async (req, res) => {
     try {
-      const order = await storage.getActiveTableOrder(req.params.tableId);
+      const order = await storage.getActiveTableOrder(ensureString(req.params.tableId));
       if (!order) {
         return res.status(404).json({ error: "No active order found for this table" });
       }
@@ -445,13 +450,13 @@ export function registerRoutes(app: Express) {
       }
 
       const orderItem = await storage.addOrderItem(
-        req.params.orderId,
+        ensureString(req.params.orderId),
         menuItemId,
         quantity || 1
       );
 
       // Get updated order with totals
-      const order = await storage.getOrderWithItems(req.params.orderId);
+      const order = await storage.getOrderWithItems(ensureString(req.params.orderId));
 
       res.json({ orderItem, order });
     } catch (error: any) {
@@ -469,10 +474,10 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ error: "Valid quantity is required" });
       }
 
-      await storage.updateOrderItemQuantity(req.params.itemId, quantity);
+      await storage.updateOrderItemQuantity(ensureString(req.params.itemId), quantity);
 
       // Get updated order
-      const order = await storage.getOrderWithItems(req.params.orderId);
+      const order = await storage.getOrderWithItems(ensureString(req.params.orderId));
 
       res.json({ success: true, order });
     } catch (error: any) {
@@ -484,10 +489,10 @@ export function registerRoutes(app: Express) {
   // Remove item from order
   app.delete("/api/orders/:orderId/items/:itemId", authenticate, async (req, res) => {
     try {
-      await storage.removeOrderItem(req.params.itemId);
+      await storage.removeOrderItem(ensureString(req.params.itemId));
 
       // Get updated order
-      const order = await storage.getOrderWithItems(req.params.orderId);
+      const order = await storage.getOrderWithItems(ensureString(req.params.orderId));
 
       res.json({ success: true, order });
     } catch (error: any) {
@@ -531,13 +536,13 @@ export function registerRoutes(app: Express) {
   // Get single menu item
   app.get("/api/menu/:id", authenticate, async (req, res) => {
     try {
-      const item = await storage.getMenuItem(req.params.id);
+      const item = await storage.getMenuItem(ensureString(req.params.id));
       if (!item) {
         return res.status(404).json({ error: "Menu item not found" });
       }
 
       // Get branch associations
-      const branchAssociations = await storage.getMenuItemBranches(req.params.id);
+      const branchAssociations = await storage.getMenuItemBranches(ensureString(req.params.id));
 
       res.json({
         ...item,
@@ -617,7 +622,7 @@ export function registerRoutes(app: Express) {
       const { branches, imageUrl, price, ...updates } = req.body;
 
       // Get the current menu item to check for old image
-      const currentItem = await storage.getMenuItem(req.params.id);
+      const currentItem = await storage.getMenuItem(ensureString(req.params.id));
 
       // Map imageUrl to image for database
       if (imageUrl !== undefined) {
@@ -645,11 +650,11 @@ export function registerRoutes(app: Express) {
       }
 
       // Update menu item
-      const item = await storage.updateMenuItem(req.params.id, updates);
+      const item = await storage.updateMenuItem(ensureString(req.params.id), updates);
 
       // Update branch availability if provided
       if (branches !== undefined) {
-        await storage.setMenuItemBranchAvailability(req.params.id, branches);
+        await storage.setMenuItemBranchAvailability(ensureString(req.params.id), branches);
       }
 
       // Map database fields back to frontend format
@@ -667,7 +672,7 @@ export function registerRoutes(app: Express) {
   // Delete menu item
   app.delete("/api/menu/:id", authenticate, async (req, res) => {
     try {
-      await storage.deleteMenuItem(req.params.id);
+      await storage.deleteMenuItem(ensureString(req.params.id));
       res.json({ success: true, message: "Menu item deleted successfully" });
     } catch (error: any) {
       console.error("Delete menu item error:", error);
@@ -718,13 +723,13 @@ export function registerRoutes(app: Express) {
   // Get single conversation with messages
   app.get("/api/whatsapp/conversations/:id", authenticate, async (req, res) => {
     try {
-      const conversation = await whatsappStorage.getConversationById(req.params.id);
+      const conversation = await whatsappStorage.getConversationById(ensureString(req.params.id));
 
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
       }
 
-      const messages = await whatsappStorage.getConversationMessages(req.params.id);
+      const messages = await whatsappStorage.getConversationMessages(ensureString(req.params.id));
 
       res.json({
         conversation,
@@ -743,14 +748,14 @@ export function registerRoutes(app: Express) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const conversation = await whatsappStorage.getConversationById(req.params.id);
+      const conversation = await whatsappStorage.getConversationById(ensureString(req.params.id));
 
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
       }
 
       await whatsappStorage.updateConversationStatus(
-        req.params.id,
+        ensureString(req.params.id),
         'waiting_human',
         req.user.id
       );
@@ -775,7 +780,7 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ error: "Message is required" });
       }
 
-      const conversation = await whatsappStorage.getConversationById(req.params.id);
+      const conversation = await whatsappStorage.getConversationById(ensureString(req.params.id));
 
       if (!conversation) {
         return res.status(404).json({ error: "Conversation not found" });
@@ -798,7 +803,7 @@ export function registerRoutes(app: Express) {
 
       // Store message
       await whatsappStorage.saveMessage({
-        conversationId: req.params.id,
+        conversationId: ensureString(req.params.id),
         whatsappMessageId: result.messages[0].id,
         direction: 'outbound',
         type: 'text',
