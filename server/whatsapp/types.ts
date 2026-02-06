@@ -4,6 +4,7 @@ export interface WhatsAppConfig {
   phoneNumberId: string;
   accessToken: string;
   verifyToken: string;
+  appSecret: string;
 }
 
 // Webhook Types

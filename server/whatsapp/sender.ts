@@ -288,10 +288,11 @@ export function getWhatsAppConfig(): WhatsAppConfig {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
 
-  if (!phoneNumberId || !accessToken || !verifyToken) {
+  if (!phoneNumberId || !accessToken || !verifyToken || !appSecret) {
     throw new Error(
-      'Missing WhatsApp environment variables. Please set WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_ACCESS_TOKEN, and WHATSAPP_VERIFY_TOKEN'
+      'Missing WhatsApp environment variables. Please set WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_ACCESS_TOKEN, WHATSAPP_VERIFY_TOKEN, and WHATSAPP_APP_SECRET'
     );
   }
 
@@ -299,5 +300,6 @@ export function getWhatsAppConfig(): WhatsAppConfig {
     phoneNumberId,
     accessToken,
     verifyToken,
+    appSecret,
   };
 }

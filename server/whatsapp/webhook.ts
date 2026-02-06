@@ -44,9 +44,9 @@ function verifySignature(req: Request): boolean {
   const config = getWhatsAppConfig();
   const bodyString = JSON.stringify(req.body);
 
-  // Calculate expected signature
+  // Calculate expected signature using App Secret (not Access Token!)
   const expectedSignature = crypto
-    .createHmac('sha256', config.accessToken)
+    .createHmac('sha256', config.appSecret)
     .update(bodyString)
     .digest('hex');
 
