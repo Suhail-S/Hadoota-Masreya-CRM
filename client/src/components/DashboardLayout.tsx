@@ -55,13 +55,13 @@ export default function DashboardLayout() {
           <div className="p-4 border-t border-gray-800">
             <div className="flex items-center mb-3">
               <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
+                {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase()}
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-white">
-                  {user?.firstName} {user?.lastName}
+                  {user?.name || user?.email?.split('@')[0]}
                 </p>
-                <p className="text-xs text-gray-400">{user?.role}</p>
+                <p className="text-xs text-gray-400">{user?.email}</p>
               </div>
             </div>
             <button
