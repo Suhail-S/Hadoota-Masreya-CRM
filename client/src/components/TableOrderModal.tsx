@@ -93,6 +93,21 @@ export default function TableOrderModal({ tableId, tableName, onClose }: TableOr
     },
   });
 
+  // Update item quantity mutation
+  const updateQuantityMutation = useMutation({
+    mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
+      const response = await api.patch(`/api/orders/${order?.id}/items/${itemId}`, { quantity });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      setOrder(data.order);
+      queryClient.invalidateQueries({ queryKey: ['floor-plan'] });
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.error || 'Failed to update quantity');
+    },
+  });
+
   // Remove item mutation
   const removeItemMutation = useMutation({
     mutationFn: async (itemId: string) => {
@@ -161,15 +176,36 @@ export default function TableOrderModal({ tableId, tableName, onClose }: TableOr
                     <div className="flex-1">
                       <div className="font-medium">{item.itemName}</div>
                       <div className="text-sm text-gray-500">
-                        {formatPrice(item.unitPrice)} × {item.quantity}
+                        {formatPrice(item.unitPrice)} each
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="font-semibold">{formatPrice(item.totalPrice)}</div>
+                    <div className="flex items-center gap-3">
+                      <div className="font-semibold min-w-[80px] text-right">
+                        {formatPrice(item.totalPrice)}
+                      </div>
+                      <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-300">
+                        <button
+                          onClick={() => updateQuantityMutation.mutate({ itemId: item.id, quantity: item.quantity - 1 })}
+                          disabled={updateQuantityMutation.isPending || item.quantity <= 1}
+                          className="px-3 py-1 text-gray-600 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          −
+                        </button>
+                        <span className="px-2 font-medium min-w-[30px] text-center">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => updateQuantityMutation.mutate({ itemId: item.id, quantity: item.quantity + 1 })}
+                          disabled={updateQuantityMutation.isPending}
+                          className="px-3 py-1 text-gray-600 hover:text-gray-800 disabled:opacity-30"
+                        >
+                          +
+                        </button>
+                      </div>
                       <button
                         onClick={() => removeItemMutation.mutate(item.id)}
                         disabled={removeItemMutation.isPending}
-                        className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                        className="text-red-600 hover:text-red-800 disabled:opacity-50 p-1"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

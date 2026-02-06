@@ -7,6 +7,12 @@ import {
   comparePassword,
   type AuthRequest,
 } from "./auth";
+import { upload } from "./upload";
+import { uploadMenuItemImage, deleteMenuItemImage } from "./supabase-storage";
+import { verifyWebhook, handleWebhook } from "./whatsapp/webhook";
+import { WhatsAppStorage } from "./whatsapp/storage";
+
+const whatsappStorage = new WhatsAppStorage();
 
 export function registerRoutes(app: Express) {
   // ============================================================================
@@ -454,6 +460,27 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Update order item quantity
+  app.patch("/api/orders/:orderId/items/:itemId", authenticate, async (req, res) => {
+    try {
+      const { quantity } = req.body;
+
+      if (!quantity || quantity < 1) {
+        return res.status(400).json({ error: "Valid quantity is required" });
+      }
+
+      await storage.updateOrderItemQuantity(req.params.itemId, quantity);
+
+      // Get updated order
+      const order = await storage.getOrderWithItems(req.params.orderId);
+
+      res.json({ success: true, order });
+    } catch (error: any) {
+      console.error("Update order item error:", error);
+      res.status(500).json({ error: error.message || "Failed to update item" });
+    }
+  });
+
   // Remove item from order
   app.delete("/api/orders/:orderId/items/:itemId", authenticate, async (req, res) => {
     try {
@@ -473,7 +500,13 @@ export function registerRoutes(app: Express) {
   app.get("/api/menu-items", authenticate, async (req, res) => {
     try {
       const items = await storage.getAllMenuItems();
-      res.json(items);
+      // Map database fields to frontend-expected fields
+      const mappedItems = items.map(item => ({
+        ...item,
+        imageUrl: item.image,
+        price: parseFloat(item.basePrice),
+      }));
+      res.json(mappedItems);
     } catch (error: any) {
       console.error("Get menu items error:", error);
       res.json({ error: "Failed to get menu items" });
@@ -508,6 +541,8 @@ export function registerRoutes(app: Express) {
 
       res.json({
         ...item,
+        imageUrl: item.image,
+        price: parseFloat(item.basePrice),
         branches: branchAssociations.map(b => b.branchId),
       });
     } catch (error: any) {
@@ -516,20 +551,60 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Upload menu item image
+  app.post("/api/menu/upload-image", authenticate, upload.single('image'), async (req, res) => {
+    try {
+      // Check if file was uploaded
+      if (!req.file) {
+        return res.status(400).json({ error: 'No image file provided' });
+      }
+
+      // Get item name from request
+      const { itemName } = req.body;
+      if (!itemName) {
+        return res.status(400).json({ error: 'Item name is required' });
+      }
+
+      // Extract file extension
+      const fileExt = req.file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
+
+      // Upload to Supabase Storage
+      const filename = await uploadMenuItemImage(req.file.buffer, itemName, fileExt);
+
+      // Return the filename to save in database
+      res.json({ filename });
+    } catch (error: any) {
+      console.error('Image upload error:', error);
+      res.status(500).json({ error: error.message || 'Failed to upload image' });
+    }
+  });
+
   // Create menu item
   app.post("/api/menu", authenticate, async (req, res) => {
     try {
-      const { branches, ...itemData } = req.body;
+      const { branches, imageUrl, price, ...itemData } = req.body;
+
+      // Map frontend fields to database fields
+      const dataToSave = {
+        ...itemData,
+        image: imageUrl || null,
+        basePrice: price,
+      };
 
       // Create menu item
-      const item = await storage.createMenuItem(itemData);
+      const item = await storage.createMenuItem(dataToSave);
 
       // Set branch availability
       if (branches && branches.length > 0) {
         await storage.setMenuItemBranchAvailability(item.id, branches);
       }
 
-      res.status(201).json(item);
+      // Map database fields back to frontend format
+      res.status(201).json({
+        ...item,
+        imageUrl: item.image,
+        price: parseFloat(item.basePrice),
+      });
     } catch (error: any) {
       console.error("Create menu item error:", error);
       res.status(500).json({ error: "Failed to create menu item" });
@@ -539,7 +614,30 @@ export function registerRoutes(app: Express) {
   // Update menu item
   app.patch("/api/menu/:id", authenticate, async (req, res) => {
     try {
-      const { branches, ...updates } = req.body;
+      const { branches, imageUrl, price, ...updates } = req.body;
+
+      // Get the current menu item to check for old image
+      const currentItem = await storage.getMenuItem(req.params.id);
+
+      // Map imageUrl to image for database
+      if (imageUrl !== undefined) {
+        updates.image = imageUrl || null;
+
+        // Delete old image if it exists and is different from new one
+        if (currentItem?.image && currentItem.image !== imageUrl && imageUrl) {
+          try {
+            await deleteMenuItemImage(currentItem.image);
+          } catch (error) {
+            console.error('Failed to delete old image:', error);
+            // Continue anyway, don't fail the update
+          }
+        }
+      }
+
+      // Map price to basePrice for database
+      if (price !== undefined) {
+        updates.basePrice = price;
+      }
 
       // Convert empty string categoryId to null
       if (updates.categoryId === '') {
@@ -554,10 +652,26 @@ export function registerRoutes(app: Express) {
         await storage.setMenuItemBranchAvailability(req.params.id, branches);
       }
 
-      res.json(item);
+      // Map database fields back to frontend format
+      res.json({
+        ...item,
+        imageUrl: item.image,
+        price: parseFloat(item.basePrice),
+      });
     } catch (error: any) {
       console.error("Update menu item error:", error);
       res.status(500).json({ error: "Failed to update menu item" });
+    }
+  });
+
+  // Delete menu item
+  app.delete("/api/menu/:id", authenticate, async (req, res) => {
+    try {
+      await storage.deleteMenuItem(req.params.id);
+      res.json({ success: true, message: "Menu item deleted successfully" });
+    } catch (error: any) {
+      console.error("Delete menu item error:", error);
+      res.status(500).json({ error: "Failed to delete menu item" });
     }
   });
 
@@ -569,6 +683,150 @@ export function registerRoutes(app: Express) {
     } catch (error: any) {
       console.error("Get branches error:", error);
       res.status(500).json({ error: "Failed to get branches" });
+    }
+  });
+
+  // ============================================================================
+  // WHATSAPP BOT ROUTES
+  // ============================================================================
+
+  // Webhook verification (required by Meta)
+  app.get("/api/whatsapp/webhook", verifyWebhook);
+
+  // Webhook handler (receive messages)
+  app.post("/api/whatsapp/webhook", handleWebhook);
+
+  // Get conversations for CRM UI
+  app.get("/api/whatsapp/conversations", authenticate, async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const assignedToUserId = req.query.assignedToUserId as string | undefined;
+
+      const conversations = await whatsappStorage.getConversationsForCRM({
+        status,
+        assignedToUserId,
+        limit: 50,
+      });
+
+      res.json(conversations);
+    } catch (error: any) {
+      console.error("Get WhatsApp conversations error:", error);
+      res.status(500).json({ error: "Failed to get conversations" });
+    }
+  });
+
+  // Get single conversation with messages
+  app.get("/api/whatsapp/conversations/:id", authenticate, async (req, res) => {
+    try {
+      const conversation = await whatsappStorage.getConversationById(req.params.id);
+
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      const messages = await whatsappStorage.getConversationMessages(req.params.id);
+
+      res.json({
+        conversation,
+        messages,
+      });
+    } catch (error: any) {
+      console.error("Get conversation error:", error);
+      res.status(500).json({ error: "Failed to get conversation" });
+    }
+  });
+
+  // Take over conversation (human takeover)
+  app.post("/api/whatsapp/conversations/:id/takeover", authenticate, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const conversation = await whatsappStorage.getConversationById(req.params.id);
+
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      await whatsappStorage.updateConversationStatus(
+        req.params.id,
+        'waiting_human',
+        req.user.id
+      );
+
+      res.json({ success: true, message: "Conversation assigned to you" });
+    } catch (error: any) {
+      console.error("Takeover conversation error:", error);
+      res.status(500).json({ error: "Failed to take over conversation" });
+    }
+  });
+
+  // Send message (staff reply)
+  app.post("/api/whatsapp/conversations/:id/message", authenticate, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { message } = req.body;
+
+      if (!message) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      const conversation = await whatsappStorage.getConversationById(req.params.id);
+
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+
+      // Get WhatsApp customer
+      const customer = await whatsappStorage.getWhatsAppCustomerByPhone(
+        conversation.whatsappCustomerId
+      );
+
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      // Send message via WhatsApp API
+      const { sendTextMessage, getWhatsAppConfig } = await import("./whatsapp/sender");
+      const config = getWhatsAppConfig();
+
+      const result = await sendTextMessage(config, customer.phoneNumber, message);
+
+      // Store message
+      await whatsappStorage.saveMessage({
+        conversationId: req.params.id,
+        whatsappMessageId: result.messages[0].id,
+        direction: 'outbound',
+        type: 'text',
+        content: JSON.stringify({ text: message }),
+        senderType: 'staff',
+        sentByUserId: req.user.id,
+      });
+
+      res.json({ success: true, message: "Message sent" });
+    } catch (error: any) {
+      console.error("Send message error:", error);
+      res.status(500).json({ error: "Failed to send message" });
+    }
+  });
+
+  // Get WhatsApp analytics/stats
+  app.get("/api/whatsapp/stats", authenticate, async (req, res) => {
+    try {
+      const stats = await whatsappStorage.getMessageStats();
+      const activeConversations = await whatsappStorage.getActiveConversationsCount();
+
+      res.json({
+        ...stats,
+        activeConversations,
+      });
+    } catch (error: any) {
+      console.error("Get WhatsApp stats error:", error);
+      res.status(500).json({ error: "Failed to get stats" });
     }
   });
 }

@@ -459,7 +459,7 @@ export class DatabaseStorage {
     }
 
     // Create order item
-    const unitPrice = menuItem.price || 0;
+    const unitPrice = parseFloat(menuItem.basePrice) || 0;
     const totalPrice = unitPrice * quantity;
 
     const [orderItem] = await db
@@ -481,6 +481,35 @@ export class DatabaseStorage {
     await this.recalculateOrderTotals(orderId);
 
     return orderItem;
+  }
+
+  // Update order item quantity
+  async updateOrderItemQuantity(orderItemId: string, quantity: number): Promise<OrderItem> {
+    const [orderItem] = await db.select().from(orderItems).where(eq(orderItems.id, orderItemId)).limit(1);
+
+    if (!orderItem) {
+      throw new Error("Order item not found");
+    }
+
+    if (quantity <= 0) {
+      throw new Error("Quantity must be greater than 0");
+    }
+
+    const totalPrice = orderItem.unitPrice * quantity;
+
+    const [updated] = await db
+      .update(orderItems)
+      .set({
+        quantity,
+        totalPrice,
+      })
+      .where(eq(orderItems.id, orderItemId))
+      .returning();
+
+    // Recalculate order totals
+    await this.recalculateOrderTotals(orderItem.orderId);
+
+    return updated;
   }
 
   // Remove order item
@@ -565,6 +594,11 @@ export class DatabaseStorage {
       .returning();
 
     return updated;
+  }
+
+  // Delete menu item
+  async deleteMenuItem(id: string): Promise<void> {
+    await db.delete(menuItems).where(eq(menuItems.id, id));
   }
 
   // Get menu item by ID
