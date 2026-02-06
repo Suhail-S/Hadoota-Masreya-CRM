@@ -324,7 +324,7 @@ export function registerRoutes(app: Express) {
     async (req, res) => {
       try {
         const reservations = await storage.getReservationsByBranch(
-          req.params.branchId
+          ensureString(req.params.branchId)
         );
         res.json(reservations);
       } catch (error: any) {
