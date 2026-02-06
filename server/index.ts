@@ -34,9 +34,14 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(status).json({ error: message });
 });
 
-// Start server
-const PORT = process.env.PORT || 3100;
-app.listen(PORT, () => {
-  console.log(`[CRM] Server running on http://localhost:${PORT}`);
-  console.log(`[CRM] API available at http://localhost:${PORT}/api`);
-});
+// Export app for Vercel serverless
+export default app;
+
+// Start server only in development (not serverless)
+if (process.env.NODE_ENV !== 'production' || process.argv[1]?.includes('tsx')) {
+  const PORT = process.env.PORT || 3100;
+  app.listen(PORT, () => {
+    console.log(`[CRM] Server running on http://localhost:${PORT}`);
+    console.log(`[CRM] API available at http://localhost:${PORT}/api`);
+  });
+}
