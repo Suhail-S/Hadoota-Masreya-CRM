@@ -9,6 +9,7 @@ import FloorPlan from './pages/FloorPlan';
 import Employees from './pages/Employees';
 import Customers from './pages/Customers';
 import Menu from './pages/Menu';
+import WhatsApp from './pages/WhatsApp';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,6 +76,7 @@ function App() {
               <Route path="menu" element={<Menu />} />
               <Route path="employees" element={<Employees />} />
               <Route path="customers" element={<Customers />} />
+              <Route path="whatsapp" element={<WhatsApp />} />
             </Route>
           </Routes>
         </AuthProvider>

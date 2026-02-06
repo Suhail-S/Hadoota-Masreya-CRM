@@ -8,6 +8,7 @@ const navigation = [
   { name: 'Menu', href: '/menu', icon: '🍽️' },
   { name: 'Employees', href: '/employees', icon: '👥' },
   { name: 'Customers', href: '/customers', icon: '🤝' },
+  { name: 'WhatsApp', href: '/whatsapp', icon: '💬' },
 ];
 
 export default function DashboardLayout() {
