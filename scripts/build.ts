@@ -1,5 +1,5 @@
 import { build as esbuild } from "esbuild";
-import { rm, readFile } from "fs/promises";
+import { rm, readFile, mkdir, cp } from "fs/promises";
 import { exec } from "child_process";
 import { promisify } from "util";
 
@@ -26,6 +26,11 @@ async function buildAll() {
   console.log("Building client...");
   await execAsync("cd client && npm install && npm run build");
   console.log("✅ Client built");
+
+  console.log("Copying client files to dist/public...");
+  await mkdir("dist/public", { recursive: true });
+  await cp("client/dist", "dist/public", { recursive: true });
+  console.log("✅ Client files copied");
 
   console.log("Building Vercel serverless entry point...");
   const pkg = JSON.parse(await readFile("package.json", "utf-8"));

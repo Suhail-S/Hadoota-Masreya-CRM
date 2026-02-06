@@ -2,10 +2,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -28,8 +24,9 @@ async function initializeApp() {
     registerRoutes(app);
     console.log('[VERCEL] Routes registered');
 
-    // Serve static files from client/dist in production
-    const clientDistPath = path.join(__dirname, "../client/dist");
+    // Serve static files from public directory
+    // In Vercel, the static files are in /var/task/dist/public
+    const clientDistPath = path.join(process.cwd(), "dist", "public");
     app.use(express.static(clientDistPath));
 
     // All remaining routes serve the React app
