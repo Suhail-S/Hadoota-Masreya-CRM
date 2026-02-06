@@ -13,8 +13,7 @@
     "serve": "npm run build && npm start",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:generate": "drizzle-kit generate",
-    "seed": "tsx --env-file=.env scripts/seed-crm.ts"
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.94.0",

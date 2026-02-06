@@ -1,4 +1,3 @@
-import type { User } from "../shared/schema";
 import type { Request } from "express";
 
 // Extend Express Request type to include authenticated user
@@ -7,8 +6,8 @@ declare global {
     interface Request {
       user?: {
         id: string;
-        username: string;
-        role: string;
+        email: string;
+        role?: string;
       };
     }
   }
@@ -18,8 +17,8 @@ declare global {
 export interface AuthRequest extends Request {
   user: {
     id: string;
-    username: string;
-    role: string;
+    email: string;
+    role?: string;
   };
 }
 

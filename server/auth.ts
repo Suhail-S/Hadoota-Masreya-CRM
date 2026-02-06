@@ -1,61 +1,47 @@
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
 import type { Request, Response, NextFunction } from "express";
-import type { User } from "../shared/schema";
+import { createClient } from "@supabase/supabase-js";
 
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "";
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export interface AuthRequest extends Request {
   user?: {
     id: string;
-    username: string;
-    role: string;
-    branchId?: string;
+    email: string;
+    role?: string;
   };
 }
 
-// Generate JWT token
-export function generateToken(user: User): string {
-  return jwt.sign(
-    {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      branchId: user.primaryBranchId,
-    },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-}
-
-// Hash password
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
-}
-
-// Compare password
-export async function comparePassword(
-  password: string,
-  hash: string
-): Promise<boolean> {
-  return bcrypt.compare(password, hash);
-}
-
 // Authentication middleware
-export function authenticate(
+export async function authenticate(
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ) {
   try {
-    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+    const authHeader = req.headers.authorization;
 
-    if (!token) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    req.user = decoded;
+    const token = authHeader.split(' ')[1];
+
+    // Verify the Supabase JWT token
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email || '',
+      role: user.user_metadata?.role || 'staff',
+    };
+
     next();
   } catch (error) {
     return res.status(401).json({ error: "Invalid or expired token" });
@@ -69,7 +55,7 @@ export function authorize(...roles: string[]) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    if (!roles.includes(req.user.role)) {
+    if (req.user.role && !roles.includes(req.user.role)) {
       return res.status(403).json({ error: "Insufficient permissions" });
     }
 

@@ -23,18 +23,17 @@ import {
   type InsertOrderItem,
   type MenuItem,
 } from "../shared/schema";
-import { hashPassword } from "./auth";
-
 export class DatabaseStorage {
   // ============================================================================
   // USER/EMPLOYEE MANAGEMENT
   // ============================================================================
+  // Note: User authentication is now handled by Supabase Auth (Google OAuth)
+  // This function is for managing employee metadata only
 
-  async createUser(data: Omit<InsertUser, "password"> & { password: string }) {
-    const hashedPassword = await hashPassword(data.password);
+  async createUser(data: InsertUser) {
     const [user] = await db
       .insert(users)
-      .values({ ...data, password: hashedPassword })
+      .values(data)
       .returning();
     return user;
   }

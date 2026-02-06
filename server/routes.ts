@@ -3,8 +3,6 @@ import { storage } from "./storage";
 import {
   authenticate,
   authorize,
-  generateToken,
-  comparePassword,
   type AuthRequest,
 } from "./auth";
 
@@ -23,75 +21,7 @@ export function registerRoutes(app: Express) {
   // ============================================================================
   // AUTHENTICATION ROUTES
   // ============================================================================
-
-  // Login
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username, password } = req.body;
-
-      if (!username || !password) {
-        return res
-          .status(400)
-          .json({ error: "Username and password are required" });
-      }
-
-      const user = await storage.getUserByUsername(username);
-
-      if (!user || !user.isActive) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      const isValid = await comparePassword(password, user.password);
-
-      if (!isValid) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      const token = generateToken(user);
-
-      // Set HTTP-only cookie
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      });
-
-      // Return user data without password
-      const { password: _, ...userData } = user;
-      res.json({ user: userData, token });
-    } catch (error: any) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Failed to login" });
-    }
-  });
-
-  // Logout
-  app.post("/api/auth/logout", (req, res) => {
-    res.clearCookie("token");
-    res.json({ message: "Logged out successfully" });
-  });
-
-  // Get current user
-  app.get("/api/auth/me", authenticate, async (req: AuthRequest, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-
-      const user = await storage.getUserById(req.user.id);
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      const { password: _, ...userData } = user;
-      res.json(userData);
-    } catch (error: any) {
-      console.error("Get current user error:", error);
-      res.status(500).json({ error: "Failed to get user data" });
-    }
-  });
+  // Authentication is now handled by Supabase Auth with Google OAuth
 
   // ============================================================================
   // USER/EMPLOYEE MANAGEMENT ROUTES
